@@ -1,6 +1,12 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
-import { doc, getDocFromServer, getFirestore, type Firestore } from 'firebase/firestore';
+import {
+  doc,
+  getDocFromServer,
+  getFirestore,
+  initializeFirestore,
+  type Firestore,
+} from 'firebase/firestore';
 
 interface FirebaseAppletConfig {
   apiKey?: string;
@@ -53,8 +59,17 @@ let initError: string | null = null;
 
 if (isFirebaseConfigured) {
   try {
-    app = initializeApp(firebaseConfig);
-    firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+    app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
+    const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
+    try {
+      firestoreInstance = initializeFirestore(
+        app,
+        { experimentalForceLongPolling: true },
+        databaseId
+      );
+    } catch {
+      firestoreInstance = getFirestore(app, databaseId);
+    }
     authInstance = getAuth(app);
   } catch (err) {
     initError = err instanceof Error ? err.message : String(err);
