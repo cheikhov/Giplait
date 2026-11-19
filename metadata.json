@@ -1,0 +1,6 @@
+{
+  "name": "GESTION DE STOCK – CHEF DE QUAI",
+  "description": "Plateforme digitale intelligente de gestion des stocks laitiers, lecture OCR des bons de réception/livraison et inventaire général des chambres froides.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

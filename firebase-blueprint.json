@@ -1,0 +1,195 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated dock operator, Chef de Quai, or Administrator profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["admin", "chef_de_quai", "operateur"] },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "active", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Dairy product in the Giplait dock catalog with real-time stock balance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "reference": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "barcode": { "type": "string", "minLength": 4, "maxLength": 64 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "packagingType": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "unitsPerCarton": { "type": "integer" },
+        "minThreshold": { "type": "integer" },
+        "currentStock": { "type": "number" },
+        "totalIn": { "type": "number" },
+        "totalOut": { "type": "number" },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "workspaceId", "name", "reference", "barcode", "category",
+        "unit", "packagingType", "unitsPerCarton", "minThreshold",
+        "currentStock", "totalIn", "totalOut", "createdByUid", "createdAt", "updatedAt"
+      ]
+    },
+    "Distributor": {
+      "title": "Distributor",
+      "description": "Authorized dairy distributor or recipient.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "referenceCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "phone": { "type": "string", "maxLength": 40 },
+        "zone": { "type": "string", "maxLength": 120 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "workspaceId", "fullName", "referenceCode", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "DeliveryDocument": {
+      "title": "DeliveryDocument",
+      "description": "Confirmed Bon de Réception or Bon de Livraison processed via OCR.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "docNumber": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "docType": { "type": "string", "enum": ["RECEPTION", "LIVRAISON"] },
+        "docDate": { "type": "string", "minLength": 4, "maxLength": 64 },
+        "partyName": { "type": "string", "maxLength": 160 },
+        "distributorId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["CONFIRMED"] },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "items": { "type": "array" },
+        "aiNotes": { "type": "string", "maxLength": 1000 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdByName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "workspaceId", "docNumber", "docType", "docDate", "status",
+        "items", "createdByUid", "createdByName", "createdAt"
+      ]
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "description": "Immutable stock movement audit entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "productReference": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "operationType": { "type": "string", "enum": ["ENTREE", "SORTIE", "AJUSTEMENT", "INVENTAIRE"] },
+        "quantity": { "type": "number" },
+        "previousStock": { "type": "number" },
+        "newStock": { "type": "number" },
+        "documentId": { "type": "string", "maxLength": 128 },
+        "documentNumber": { "type": "string", "maxLength": 80 },
+        "documentImageUrl": { "type": "string", "maxLength": 500 },
+        "partyName": { "type": "string", "maxLength": 160 },
+        "distributorId": { "type": "string", "maxLength": 128 },
+        "reason": { "type": "string", "maxLength": 400 },
+        "userUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "workspaceId", "productId", "productName", "productReference",
+        "operationType", "quantity", "previousStock", "newStock",
+        "userUid", "userName", "createdAt"
+      ]
+    },
+    "GlobalInventory": {
+      "title": "GlobalInventory",
+      "description": "Consolidated physical inventory across all cold storage rooms.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sessionCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "status": { "type": "string", "enum": ["VALIDEE"] },
+        "totalTheoretical": { "type": "number" },
+        "totalPhysical": { "type": "number" },
+        "totalDiscrepancy": { "type": "number" },
+        "linesCount": { "type": "integer" },
+        "lines": { "type": "array" },
+        "mediaItems": { "type": "array" },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "userUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "workspaceId", "sessionCode", "status",
+        "totalTheoretical", "totalPhysical", "totalDiscrepancy",
+        "linesCount", "lines", "mediaItems", "userUid", "userName", "createdAt"
+      ]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Security and operational audit event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "action": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "targetType": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "details": { "type": "string", "maxLength": 600 },
+        "userUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "userRole": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "workspaceId", "action", "targetType", "details", "userUid", "userName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account profiles with RBAC role."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Master dairy product catalog and real-time stock quantities."
+    },
+    "/distributors/{distributorId}": {
+      "schema": { "$ref": "#/entities/Distributor" },
+      "description": "Registered distributors and recipients."
+    },
+    "/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/DeliveryDocument" },
+      "description": "Archived Bon de Réception and Bon de Livraison documents."
+    },
+    "/movements/{movementId}": {
+      "schema": { "$ref": "#/entities/StockMovement" },
+      "description": "Immutable stock movement audit ledger."
+    },
+    "/inventories/{inventoryId}": {
+      "schema": { "$ref": "#/entities/GlobalInventory" },
+      "description": "Validated global cold-storage physical inventory sessions."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "System and user action audit logs."
+    }
+  }
+}

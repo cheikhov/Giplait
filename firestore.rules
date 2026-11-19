@@ -1,0 +1,345 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'dzdzsafer@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+      );
+    }
+
+    function isChefOrAdmin() {
+      return isAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'chef_de_quai'] &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'active', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'active', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role in ['admin', 'chef_de_quai', 'operateur']
+        && data.active is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+          'id', 'workspaceId', 'name', 'reference', 'barcode', 'category',
+          'unit', 'packagingType', 'unitsPerCarton', 'minThreshold',
+          'currentStock', 'totalIn', 'totalOut', 'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'workspaceId', 'name', 'reference', 'barcode', 'category',
+          'unit', 'packagingType', 'unitsPerCarton', 'minThreshold',
+          'currentStock', 'totalIn', 'totalOut', 'imageUrl', 'description',
+          'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.reference is string && data.reference.size() >= 1 && data.reference.size() <= 64
+        && data.barcode is string && data.barcode.size() >= 4 && data.barcode.size() <= 64
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 80
+        && data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 40
+        && data.packagingType is string && data.packagingType.size() >= 1 && data.packagingType.size() <= 80
+        && data.unitsPerCarton is int && data.unitsPerCarton >= 1 && data.unitsPerCarton <= 100000
+        && data.minThreshold is int && data.minThreshold >= 0 && data.minThreshold <= 10000000
+        && data.currentStock is number && data.currentStock >= 0 && data.currentStock <= 100000000
+        && data.totalIn is number && data.totalIn >= 0
+        && data.totalOut is number && data.totalOut >= 0
+        && (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 500))
+        && (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 1000))
+        && isValidId(data.createdByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDistributor(data) {
+      return data.keys().hasAll(['id', 'workspaceId', 'fullName', 'referenceCode', 'createdByUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'workspaceId', 'fullName', 'referenceCode', 'phone', 'zone', 'createdByUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 160
+        && data.referenceCode is string && data.referenceCode.size() >= 1 && data.referenceCode.size() <= 64
+        && (!data.keys().hasAny(['phone']) || (data.phone is string && data.phone.size() <= 40))
+        && (!data.keys().hasAny(['zone']) || (data.zone is string && data.zone.size() <= 120))
+        && isValidId(data.createdByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasAll([
+          'id', 'workspaceId', 'docNumber', 'docType', 'docDate', 'status',
+          'items', 'createdByUid', 'createdByName', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'workspaceId', 'docNumber', 'docType', 'docDate', 'partyName',
+          'distributorId', 'status', 'imageUrl', 'items', 'aiNotes',
+          'createdByUid', 'createdByName', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.docNumber is string && data.docNumber.size() >= 1 && data.docNumber.size() <= 80
+        && data.docType in ['RECEPTION', 'LIVRAISON']
+        && data.docDate is string && data.docDate.size() >= 4 && data.docDate.size() <= 64
+        && (!data.keys().hasAny(['partyName']) || (data.partyName is string && data.partyName.size() <= 160))
+        && (!data.keys().hasAny(['distributorId']) || (data.distributorId is string && data.distributorId.size() <= 128))
+        && data.status == 'CONFIRMED'
+        && (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 500))
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 100
+        && data.items[0] is map
+        && (!data.keys().hasAny(['aiNotes']) || (data.aiNotes is string && data.aiNotes.size() <= 1000))
+        && isValidId(data.createdByUid)
+        && data.createdByName is string && data.createdByName.size() >= 1 && data.createdByName.size() <= 120
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMovement(data) {
+      return data.keys().hasAll([
+          'id', 'workspaceId', 'productId', 'productName', 'productReference',
+          'operationType', 'quantity', 'previousStock', 'newStock',
+          'userUid', 'userName', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'workspaceId', 'productId', 'productName', 'productReference',
+          'operationType', 'quantity', 'previousStock', 'newStock',
+          'documentId', 'documentNumber', 'documentImageUrl', 'partyName',
+          'distributorId', 'reason', 'userUid', 'userName', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && isValidId(data.productId)
+        && data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 200
+        && data.productReference is string && data.productReference.size() >= 1 && data.productReference.size() <= 64
+        && data.operationType in ['ENTREE', 'SORTIE', 'AJUSTEMENT', 'INVENTAIRE']
+        && data.quantity is number
+        && data.previousStock is number && data.previousStock >= 0
+        && data.newStock is number && data.newStock >= 0
+        && (!data.keys().hasAny(['documentId']) || (data.documentId is string && data.documentId.size() <= 128))
+        && (!data.keys().hasAny(['documentNumber']) || (data.documentNumber is string && data.documentNumber.size() <= 80))
+        && (!data.keys().hasAny(['documentImageUrl']) || (data.documentImageUrl is string && data.documentImageUrl.size() <= 500))
+        && (!data.keys().hasAny(['partyName']) || (data.partyName is string && data.partyName.size() <= 160))
+        && (!data.keys().hasAny(['distributorId']) || (data.distributorId is string && data.distributorId.size() <= 128))
+        && (!data.keys().hasAny(['reason']) || (data.reason is string && data.reason.size() <= 400))
+        && isValidId(data.userUid)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 120
+        && data.createdAt is timestamp;
+    }
+
+    function isValidInventory(data) {
+      return data.keys().hasAll([
+          'id', 'workspaceId', 'sessionCode', 'status',
+          'totalTheoretical', 'totalPhysical', 'totalDiscrepancy',
+          'linesCount', 'lines', 'mediaItems', 'userUid', 'userName', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'workspaceId', 'sessionCode', 'status',
+          'totalTheoretical', 'totalPhysical', 'totalDiscrepancy',
+          'linesCount', 'lines', 'mediaItems', 'notes', 'userUid', 'userName', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.sessionCode is string && data.sessionCode.size() >= 1 && data.sessionCode.size() <= 64
+        && data.status == 'VALIDEE'
+        && data.totalTheoretical is number && data.totalTheoretical >= 0
+        && data.totalPhysical is number && data.totalPhysical >= 0
+        && data.totalDiscrepancy is number
+        && data.linesCount is int && data.linesCount >= 1 && data.linesCount <= 200
+        && data.lines is list && data.lines.size() >= 1 && data.lines.size() <= 150
+        && data.lines[0] is map
+        && data.mediaItems is list && data.mediaItems.size() <= 20
+        && (data.mediaItems.size() == 0 || data.mediaItems[0] is map)
+        && (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 1000))
+        && isValidId(data.userUid)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 120
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['id', 'workspaceId', 'action', 'targetType', 'details', 'userUid', 'userName', 'createdAt'])
+        && data.keys().hasOnly(['id', 'workspaceId', 'action', 'targetType', 'targetId', 'details', 'userUid', 'userName', 'userRole', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.workspaceId)
+        && data.action is string && data.action.size() >= 1 && data.action.size() <= 120
+        && data.targetType is string && data.targetType.size() >= 1 && data.targetType.size() <= 64
+        && (!data.keys().hasAny(['targetId']) || (data.targetId is string && data.targetId.size() <= 128))
+        && data.details is string && data.details.size() >= 1 && data.details.size() <= 600
+        && isValidId(data.userUid)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 120
+        && (!data.keys().hasAny(['userRole']) || (data.userRole is string && data.userRole.size() <= 40))
+        && data.createdAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId) && incoming().role == (isBootstrappedAdmin() ? 'admin' : 'chef_de_quai')) ||
+          isAdmin()
+        );
+      allow update: if isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /products/{productId} {
+      allow get: if isValidId(productId) && isSignedIn() && (existing().workspaceId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.workspaceId == request.auth.uid;
+      allow create: if isValidId(productId)
+        && isSignedIn()
+        && isValidProduct(incoming())
+        && incoming().id == productId
+        && incoming().workspaceId == request.auth.uid
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isChefOrAdmin();
+      allow update: if isValidId(productId)
+        && isSignedIn()
+        && isValidProduct(incoming())
+        && incoming().id == existing().id
+        && incoming().workspaceId == existing().workspaceId
+        && existing().workspaceId == request.auth.uid
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isChefOrAdmin() ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['currentStock', 'totalIn', 'totalOut', 'updatedAt']))
+        );
+      allow delete: if isValidId(productId) && isSignedIn() && ((existing().workspaceId == request.auth.uid && isChefOrAdmin()) || isAdmin());
+    }
+
+    match /distributors/{distributorId} {
+      allow get: if isValidId(distributorId) && isSignedIn() && (existing().workspaceId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.workspaceId == request.auth.uid;
+      allow create: if isValidId(distributorId)
+        && isSignedIn()
+        && isValidDistributor(incoming())
+        && incoming().id == distributorId
+        && incoming().workspaceId == request.auth.uid
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isChefOrAdmin();
+      allow update: if isValidId(distributorId)
+        && isSignedIn()
+        && isValidDistributor(incoming())
+        && incoming().id == existing().id
+        && incoming().workspaceId == existing().workspaceId
+        && existing().workspaceId == request.auth.uid
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isChefOrAdmin();
+      allow delete: if isValidId(distributorId) && isSignedIn() && ((existing().workspaceId == request.auth.uid && isChefOrAdmin()) || isAdmin());
+    }
+
+    match /documents/{documentId} {
+      allow get: if isValidId(documentId) && isSignedIn() && (existing().workspaceId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.workspaceId == request.auth.uid;
+      allow create: if isValidId(documentId)
+        && isSignedIn()
+        && isValidDocument(incoming())
+        && incoming().id == documentId
+        && incoming().workspaceId == request.auth.uid
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /movements/{movementId} {
+      allow get: if isValidId(movementId) && isSignedIn() && (existing().workspaceId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.workspaceId == request.auth.uid;
+      allow create: if isValidId(movementId)
+        && isSignedIn()
+        && isValidMovement(incoming())
+        && incoming().id == movementId
+        && incoming().workspaceId == request.auth.uid
+        && incoming().userUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /inventories/{inventoryId} {
+      allow get: if isValidId(inventoryId) && isSignedIn() && (existing().workspaceId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.workspaceId == request.auth.uid;
+      allow create: if isValidId(inventoryId)
+        && isSignedIn()
+        && isValidInventory(incoming())
+        && incoming().id == inventoryId
+        && incoming().workspaceId == request.auth.uid
+        && incoming().userUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && isChefOrAdmin();
+      allow update, delete: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && (existing().workspaceId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.workspaceId == request.auth.uid;
+      allow create: if isValidId(logId)
+        && isSignedIn()
+        && isValidAuditLog(incoming())
+        && incoming().id == logId
+        && incoming().workspaceId == request.auth.uid
+        && incoming().userUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+  }
+}
