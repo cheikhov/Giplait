@@ -45,19 +45,21 @@ function parseDataUrl(dataUrl: string): { mimeType: string; base64Data: string }
   return { mimeType: match[1], base64Data: match[2] };
 }
 
-async function startServer() {
+export function createApp() {
   const app = express();
   app.use(express.json({ limit: '30mb' }));
 
-  // Serve persisted captured photos & cold-room videos
-  loadWorkspaceStore();
-  app.use('/uploads', express.static(UPLOADS_DIR));
+  // Serve persisted captured photos & cold-room videos locally
+  if (!process.env.VERCEL) {
+    loadWorkspaceStore();
+    app.use('/uploads', express.static(UPLOADS_DIR));
+  }
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, service: 'chef-de-quai-api' });
   });
 
-  // Upload media (image or video) to disk so large files stay out of Firestore/JSON docs
+  // Upload media (image or video): saves to disk locally, or keeps compact dataUrl on Vercel serverless
   app.post('/api/media/upload', (req, res) => {
     try {
       const { dataUrl, prefix = 'media' } = req.body as { dataUrl?: string; prefix?: string };
@@ -72,6 +74,13 @@ async function startServer() {
         : mimeType.includes('png')
         ? 'png'
         : 'jpg';
+      if (process.env.VERCEL) {
+        if (dataUrl.length <= 750_000) {
+          return res.json({ url: dataUrl, filename: 'inline', mimeType });
+        }
+        return res.json({ url: '', filename: 'ephemeral', mimeType });
+      }
+      loadWorkspaceStore();
       const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '');
       const filename = `${safePrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
       const filePath = path.join(UPLOADS_DIR, filename);
@@ -421,6 +430,12 @@ ${catalogNames}`,
     }
   });
 
+  return app;
+}
+
+async function startServer() {
+  const app = createApp();
+
   // Vite dev middleware or static production files
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -442,7 +457,9 @@ ${catalogNames}`,
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+if (!process.env.VERCEL) {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}

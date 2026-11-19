@@ -20,7 +20,9 @@ import {
   isDuplicateDocNumber,
 } from '../utils/stockEngine';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'giplait-data')
+  : path.resolve(process.cwd(), 'data');
 const STORE_PATH = path.join(DATA_DIR, 'quai_store.json');
 export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 
