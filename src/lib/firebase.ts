@@ -19,17 +19,27 @@ const configModules = import.meta.glob<{ default: FirebaseAppletConfig }>(
 const fileConfig =
   Object.values(configModules)[0]?.default ?? ({} as FirebaseAppletConfig);
 
+function cleanEnv(val: unknown): string {
+  if (typeof val !== 'string') return '';
+  return val.trim().replace(/^["']|["']$/g, '');
+}
+
 const firebaseConfig: FirebaseAppletConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || fileConfig.apiKey || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || fileConfig.authDomain || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || fileConfig.projectId || '',
+  apiKey: cleanEnv(import.meta.env.VITE_FIREBASE_API_KEY) || cleanEnv(fileConfig.apiKey),
+  authDomain:
+    cleanEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) || cleanEnv(fileConfig.authDomain),
+  projectId:
+    cleanEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID) || cleanEnv(fileConfig.projectId),
   storageBucket:
-    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || fileConfig.storageBucket || '',
+    cleanEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) || cleanEnv(fileConfig.storageBucket),
   messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || fileConfig.messagingSenderId || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || fileConfig.appId || '',
+    cleanEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) ||
+    cleanEnv(fileConfig.messagingSenderId),
+  appId: cleanEnv(import.meta.env.VITE_FIREBASE_APP_ID) || cleanEnv(fileConfig.appId),
   firestoreDatabaseId:
-    import.meta.env.VITE_FIREBASE_DATABASE_ID || fileConfig.firestoreDatabaseId || '(default)',
+    cleanEnv(import.meta.env.VITE_FIREBASE_DATABASE_ID) ||
+    cleanEnv(fileConfig.firestoreDatabaseId) ||
+    '(default)',
 };
 
 export const isFirebaseConfigured = Boolean(

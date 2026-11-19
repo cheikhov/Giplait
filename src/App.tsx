@@ -129,11 +129,17 @@ function AppContent() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      setAuthError(
+      const msg =
         err instanceof Error
           ? err.message
-          : 'Impossible d’ouvrir la fenêtre de connexion Google.'
-      );
+          : 'Impossible d’ouvrir la fenêtre de connexion Google.';
+      if (msg.includes('auth/unauthorized-domain')) {
+        setAuthError(
+          `Domaine non autorisé dans Firebase (${window.location.hostname}). Ajoutez ce domaine dans Firebase Console → Authentication → Settings → Authorized domains (ou utilisez les identifiants de votre propre projet Firebase dans VITE_FIREBASE_*).`
+        );
+      } else {
+        setAuthError(msg);
+      }
       setAuthLoading(false);
     }
   };
