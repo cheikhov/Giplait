@@ -14,7 +14,7 @@ import { ReportsView } from './components/ReportsView';
 import { ArchivesView } from './components/ArchivesView';
 import { SettingsView } from './components/SettingsView';
 import { DEFAULT_COLD_ROOMS } from './data/catalog';
-import { auth, googleProvider } from './lib/firebase';
+import { auth, firebaseInitError, googleProvider, isFirebaseConfigured } from './lib/firebase';
 import {
   ensureFirebaseUserProfile,
   fetchLocalWorkspace,
@@ -55,7 +55,9 @@ function AppContent() {
   });
   const [workspace, setWorkspace] = useState<WorkspaceState>(EMPTY_WORKSPACE);
   const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(() =>
+    !isFirebaseConfigured ? firebaseInitError : null
+  );
   const [dataLoading, setDataLoading] = useState(false);
 
   // Sync HTML dir="rtl" / "ltr" and lang attribute
@@ -66,6 +68,7 @@ function AppContent() {
 
   // Listen to Firebase Auth state changes
   useEffect(() => {
+    if (!auth) return;
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       if (!fbUser) return;
       try {
@@ -114,6 +117,13 @@ function AppContent() {
   }, [user, refreshLocalWorkspace]);
 
   const handleGoogleLogin = async () => {
+    if (!auth || !isFirebaseConfigured) {
+      setAuthError(
+        firebaseInitError ||
+          'Configuration Firebase manquante. Ajoutez les variables VITE_FIREBASE_* dans Vercel.'
+      );
+      return;
+    }
     setAuthError(null);
     setAuthLoading(true);
     try {
@@ -129,7 +139,7 @@ function AppContent() {
   };
 
   const handleLogout = async () => {
-    if (user?.authMode === 'firebase') {
+    if (user?.authMode === 'firebase' && auth) {
       await signOut(auth);
     }
     setUser(null);
